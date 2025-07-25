@@ -6,98 +6,66 @@ import pandas as pd
 from pathlib import Path
 from hashlib import sha512
 from itertools import product
+from datetime import datetime
 from simulator.Simulator import Simulator
+
+def get_hyperparameters():
+    """
+    Fetches the hyperparameters from the docker compose config file
+    :return: the experiment name and the hyperparameters (as a dictionary name -> values)
+    """
+    hyperparams = os.environ['LEARNING_HYPERPARAMETERS']
+    hyperparams = yaml.safe_load(hyperparams)
+    experiment_name, hyperparams = list(hyperparams.items())[0]
+    return experiment_name.lower(), hyperparams
 
 if __name__ == '__main__':
 
     total_experiments = 0
 
-    datasets        = ['MNIST', 'FashionMNIST', 'EMNIST']
+    datasets        = ['CIFAR100']
     clients         = 50
     batch_size      = 32
     local_epochs    = 2
-    global_rounds   = 30
-    data_dir        = 'data-acsos-ae'
+    global_rounds   = 60
+    data_dir        = 'data'
     max_seed        = 20
 
     data_output_directory = Path(data_dir)
     data_output_directory.mkdir(parents=True, exist_ok=True)
 
-    # Experiments IID
-    partitioning = 'IID'
-    experiment_name = 'fedavg'
-    areas = 3
+    experiment_name, hyperparams = get_hyperparameters()
+    a = hyperparams['algorithm'][0]
+
+    if a == 0:
+        algorithm = 'FedAvg'
+    elif a == 1:
+        algorithm = 'FedProx'
+    elif a == 2:
+        algorithm = 'Scaffold'
+    elif a == 3:
+        algorithm = 'IFCA'
+
+    csv_file = f'finished_experiment_log.csv'
+
+    df = pd.DataFrame(columns=['timestamp', 'experiment'])
+
+    try:
+        df = pd.read_csv(csv_file)
+    except FileNotFoundError:
+        pass
+
+    partitioning = 'Hard'
+    areas = [3, 5, 9]
     iid_start = time.time()
     for seed in range(max_seed):
-        seed_start = time.time()
         for dataset in datasets:
-            simulator = Simulator(experiment_name, partitioning, areas, dataset, clients, batch_size, local_epochs, data_dir, seed)
-            simulator.seed_everything(seed)
-            simulator.start(global_rounds)
-            total_experiments += 1
-        seed_end = time.time()
-        print(f'Seed {seed} took {seed_end - seed_start} seconds')
-    iid_end = time.time()
-    print(f'IID experiments took {iid_end - iid_start} seconds')
-
-    # Experiments non-IID dirichlet
-    partitioning = 'Dirichlet'
-    experiment_names = ['fedavg', 'fedproxy', 'scaffold']
-    areas = [3, 6, 9]
-    non_iid_start = time.time()
-    for seed in range(max_seed):
-        seed_start = time.time()
-        for experiment_name in experiment_names:
-            for dataset in datasets:
-                for area in areas:
-                    print(f'starting dirichlet seed {seed} experiment {experiment_name} dataset {dataset} area {area}')
-                    simulator = Simulator(experiment_name, partitioning, area, dataset, clients, batch_size, local_epochs, data_dir, seed)
-                    simulator.seed_everything(seed)
-                    simulator.start(global_rounds)
-                    total_experiments += 1
-        seed_end = time.time()
-        print(f'Seed {seed} took {seed_end - seed_start} seconds')
-    non_iid_end = time.time()
-    print(f'non-IID experiments took {non_iid_end - non_iid_start} seconds')
-
-    # Experiments non-IID hard EMNIST
-    partitioning = 'Hard'
-    experiment_names = ['fedavg', 'fedproxy', 'scaffold']
-    areas = [3, 5, 9]
-    non_iid_start = time.time()
-    for seed in range(max_seed):
-        seed_start = time.time()
-        for experiment_name in experiment_names:
-            for dataset in ['EMNIST']:
-                for area in areas:
-                    print(f'starting hard seed {seed} experiment {experiment_name} dataset {dataset} area {area}')
-                    simulator = Simulator(experiment_name, partitioning, area, dataset, clients, batch_size, local_epochs, data_dir, seed)
-                    simulator.seed_everything(seed)
-                    simulator.start(global_rounds)
-                    total_experiments += 1
-        seed_end = time.time()
-        print(f'Seed {seed} took {seed_end - seed_start} seconds')
-    non_iid_end = time.time()
-    print(f'non-IID experiments hard EMNIST took {non_iid_end - non_iid_start} seconds')
-
-    # Experiments non-IID hard MNIST and Fashion
-    partitioning = 'Hard'
-    experiment_names = ['fedavg', 'fedproxy', 'scaffold']
-    areas = [3]
-    non_iid_start = time.time()
-    for seed in range(max_seed):
-        seed_start = time.time()
-        for experiment_name in experiment_names:
-            for dataset in ['MNIST', 'FashionMNIST']:
-                for area in areas:
-                    print(f'starting hard seed {seed} experiment {experiment_name} dataset {dataset} area {area}')
-                    simulator = Simulator(experiment_name, partitioning, area, dataset, clients, batch_size, local_epochs, data_dir, seed)
-                    simulator.seed_everything(seed)
-                    simulator.start(global_rounds)
-        seed_end = time.time()
-        print(f'Seed {seed} took {seed_end - seed_start} seconds')
-    non_iid_end = time.time()
-    print(f'non-IID experiments hard MNIST and Fashion took {non_iid_end - non_iid_start} seconds')
-    #
-    #
-    print(f'Total experiments {total_experiments}')
+            for area in areas:
+                simulator = Simulator(algorithm, partitioning, area, dataset, clients, batch_size, local_epochs, data_dir, seed)
+                simulator.seed_everything(seed)
+                simulator.start(global_rounds)
+                experiment_name = f'seed-{seed}_regions-{area}_algorithm_{algorithm}'
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                new_line = {'timestamp': timestamp, 'experiment': experiment_name}
+                df = pd.concat([df, pd.DataFrame([new_line])], ignore_index=True)
+                df.to_csv(csv_file, index=False)
