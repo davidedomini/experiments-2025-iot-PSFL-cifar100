@@ -38,9 +38,9 @@ if __name__ == '__main__':
     a = hyperparams['algorithm'][0]
 
     if a == 0:
-        algorithm = 'FedAvg'
+        algorithm = 'fedavg'
     elif a == 1:
-        algorithm = 'FedProx'
+        algorithm = 'fedproxy'
     elif a == 2:
         algorithm = 'Scaffold'
     elif a == 3:
