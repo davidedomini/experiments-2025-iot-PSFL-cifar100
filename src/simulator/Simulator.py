@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import utils.FedUtils as utils
 from collections import Counter
+from client.IFCAClient import IFCAClient
+from server.IFCAServer import IFCAServer
 from torchvision import datasets, transforms
 from client.FedAvgClient import FedAvgClient
 from client.FedProxyClient import FedProxyClient
@@ -59,6 +61,8 @@ class Simulator:
             return [ScaffoldClient(index, self.dataset_name, client_data_mapping[index], self.batch_size, self.local_epochs) for index in range(self.n_clients)]
         elif self.algorithm == 'fedproxy':
             return [FedProxyClient(index, self.dataset_name, client_data_mapping[index], self.batch_size, self.local_epochs) for index in range(self.n_clients)]
+        elif self.algorithm == 'ifca':
+            return [IFCAClient(index, self.dataset_name, client_data_mapping[index], self.batch_size, self.local_epochs) for index in range(self.n_clients)]
         else:
             raise Exception(f'Algorithm {self.algorithm} not supported! Please check :)')
 
@@ -67,12 +71,14 @@ class Simulator:
             return FedAvgServer(self.dataset_name)
         elif self.algorithm == 'scaffold':
             return ScaffoldServer(self.dataset_name)
+        elif self.algorithm == 'ifca':
+            return IFCAServer(self.dataset_name, self.areas)
         else:
             raise Exception(f'Algorithm {self.algorithm} not supported! Please check :)')
 
     def notify_clients(self):
         for client in self.clients:
-            if self.algorithm == 'fedavg' or self.algorithm == 'fedproxy':
+            if self.algorithm == 'fedavg' or self.algorithm == 'fedproxy' or self.algorithm == 'ifca':
                 client.notify_updates(self.server.model)
             elif self.algorithm == 'scaffold':
                 client.notify_updates(self.server.model, self.server.control_state)
@@ -88,7 +94,7 @@ class Simulator:
     def notify_server(self):
         client_data = {}
         for index, client in enumerate(self.clients):
-            if self.algorithm == 'fedavg' or self.algorithm =='fedproxy':
+            if self.algorithm == 'fedavg' or self.algorithm =='fedproxy' or self.algorithm == 'ifca':
                 client_data[index] = client.model
             elif self.algorithm == 'scaffold':
                 client_data[index] = { 'model': client.model, 'client_control_state': client.client_control_state }
