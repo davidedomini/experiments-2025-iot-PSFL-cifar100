@@ -11,7 +11,7 @@ class IFCAClient:
         self.mid = mid
         self.lr = 0.001
         self.epochs = epochs
-        self.dataset = dataset
+        self.dataset = dataset[0]
         # labels = [self.dataset[idx][1] for idx in range(len(self.dataset))]
         # print(f'Client {self.mid} --> training set size {len(self.dataset)} classes {set(labels)}')
         self._global_models = []
