@@ -44,7 +44,7 @@ if __name__ == '__main__':
     elif a == 2:
         algorithm = 'Scaffold'
     elif a == 3:
-        algorithm = 'IFCA'
+        algorithm = 'ifca'
 
     csv_file = f'finished_experiment_log.csv'
 
