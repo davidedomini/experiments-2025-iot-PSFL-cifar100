@@ -22,9 +22,9 @@ class Simulator:
         self.batch_size = batch_size
         self.local_epochs = local_epochs
         self.dataset_name = dataset_name
+        self.algorithm = algorithm
         self.training_data, self.validation_data, self.test_data = self.initialize_data()
         self.partitioning = partitioning
-        self.algorithm = algorithm
         self.areas = areas
         self.n_clients = n_clients
         self.export_path = f'{data_folder}/seed-{seed}_algorithm-{self.algorithm}_dataset-{dataset_name}_partitioning-{self.partitioning}_areas-{self.areas}_clients-{self.n_clients}'
@@ -48,6 +48,7 @@ class Simulator:
             training_loss = self.clients_update()
             self.notify_server()
             self.server_update()
+            print('validation')
             validation_loss, validation_accuracy = self.test_global_model()
             self.export_data(r, training_loss, validation_loss, validation_accuracy)
         self.test_global_model(False)
@@ -106,6 +107,8 @@ class Simulator:
     def initialize_data(self):
         train, test_data = download_dataset(self.dataset_name)
         training_data, validation_data = split_train_validation(train, 0.8)
+        if self.algorithm == 'ifca':
+            test_data, _ = split_train_validation(test_data, 1.0)
         return training_data, validation_data, test_data
 
     def map_client_to_data(self) -> dict[int, Subset]:
@@ -120,9 +123,31 @@ class Simulator:
             for device_index, data in mapping_devices_data.items():
                 device_id = devices[device_index]
                 mapping[device_id] = data # data is tuple(training_subset, validation_subset)
+
+        if self.algorithm == 'ifca':
+            environment_test = partition_to_subregions(self.test_data, self.test_data, 'CIFAR100', 'Hard', self.areas, self.seed)
+            region_to_val_data = {}
+            region_to_test_data = {}
+            for region_id in range(self.areas):
+                mapping_devices_data_val = environment.from_subregion_to_devices(region_id, 1)
+                mapping_devices_data_test = environment_test.from_subregion_to_devices(region_id, 1)
+                d_val = mapping_devices_data_val[0][0]
+                d_test = mapping_devices_data_test[0][0]
+                region_to_val_data[region_id] = Subset(d_val.dataset, d_val.indices)
+                region_to_test_data[region_id] = Subset(d_test.dataset, d_test.indices)
+            self.ifca_val_mapping = region_to_val_data
+            self.ifca_test_mapping = region_to_test_data
+
         return mapping
 
     def test_global_model(self, validation = True):
+        if self.algorithm == 'ifca':
+            loss, accuracy = self.__validate_clustered(validation)
+        else:
+            loss, accuracy = self.__validate_centralized(validation)
+        return loss, accuracy
+
+    def __validate_centralized(self, validation):
         model = self.server.model
         if validation:
             dataset = self.validation_data
@@ -132,6 +157,27 @@ class Simulator:
         if not validation:
             data = pd.DataFrame({'Loss': [loss], 'Accuracy': [accuracy]})
             data.to_csv(f'{self.export_path}-test.csv', index=False)
+        return loss, accuracy
+
+    def __validate_clustered(self, validation):
+        models = self.server.model
+        if validation:
+            mapping = self.ifca_val_mapping
+        else:
+            mapping = self.ifca_test_mapping
+
+        losses = []
+        accuracies = []
+        for index, model in enumerate(models):
+            loss, accuracy = utils.test_model(model, mapping[index], self.batch_size, self.device)
+            losses.append(loss)
+            accuracies.append(accuracy)
+        loss, accuracy = sum(losses)/len(losses), sum(accuracies)/len(accuracies)
+
+        if not validation:
+            data = pd.DataFrame({'Loss': [loss], 'Accuracy': [accuracy]})
+            data.to_csv(f'{self.export_path}-test.csv', index=False)
+
         return loss, accuracy
 
     def export_data(self, global_round, training_loss, evaluation_loss, evaluation_accuracy):

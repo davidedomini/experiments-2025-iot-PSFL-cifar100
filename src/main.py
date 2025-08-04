@@ -44,7 +44,7 @@ if __name__ == '__main__':
     elif a == 1:
         algorithm = 'fedproxy'
     elif a == 2:
-        algorithm = 'Scaffold'
+        algorithm = 'scaffold'
     elif a == 3:
         algorithm = 'ifca'
     else:
