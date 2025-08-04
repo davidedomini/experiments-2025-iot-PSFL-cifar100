@@ -43,7 +43,7 @@ class Simulator:
 
     def start(self, global_rounds):
         for r in range(global_rounds):
-            print(f'Starting global round {r}')
+            print(f'Starting global round {r} -- using device {self.device}')
             self.notify_clients()
             training_loss = self.clients_update()
             self.notify_server()

@@ -37,6 +37,8 @@ if __name__ == '__main__':
     experiment_name, hyperparams = get_hyperparameters()
     a = hyperparams['algorithm'][0]
 
+    # a = 3
+
     if a == 0:
         algorithm = 'fedavg'
     elif a == 1:
@@ -45,6 +47,8 @@ if __name__ == '__main__':
         algorithm = 'Scaffold'
     elif a == 3:
         algorithm = 'ifca'
+    else:
+        algorithm = 'Unknown'
 
     csv_file = f'finished_experiment_log.csv'
 
