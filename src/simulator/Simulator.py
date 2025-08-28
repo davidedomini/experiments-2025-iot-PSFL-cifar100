@@ -135,6 +135,11 @@ class Simulator:
                 d_test = mapping_devices_data_test[0][0]
                 region_to_val_data[region_id] = Subset(d_val.dataset, d_val.indices)
                 region_to_test_data[region_id] = Subset(d_test.dataset, d_test.indices)
+                # print(f'---------------- region {region_id} ----------------')
+                # labels = set([d_val.dataset[idx][1] for idx in d_val.indices])
+                # print(f'Validation labels = {labels}')
+                # labels = set([d_test.dataset[idx][1] for idx in d_test.indices])
+                # print(f'Test labels = {labels}')
             self.ifca_val_mapping = region_to_val_data
             self.ifca_test_mapping = region_to_test_data
 
@@ -160,7 +165,7 @@ class Simulator:
         return loss, accuracy
 
     def __validate_clustered(self, validation):
-        models = self.server.model
+        # models = self.server.model
         if validation:
             mapping = self.ifca_val_mapping
         else:
@@ -168,8 +173,9 @@ class Simulator:
 
         losses = []
         accuracies = []
-        for index, model in enumerate(models):
-            loss, accuracy = utils.test_model(model, mapping[index], self.batch_size, self.device)
+        for client in self.clients:
+            cluster_id, model = client.model
+            loss, accuracy = utils.test_model(model, mapping[cluster_id], self.batch_size, self.device)
             losses.append(loss)
             accuracies.append(accuracy)
         loss, accuracy = sum(losses)/len(losses), sum(accuracies)/len(accuracies)
