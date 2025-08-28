@@ -35,9 +35,9 @@ if __name__ == '__main__':
     data_output_directory.mkdir(parents=True, exist_ok=True)
 
     experiment_name, hyperparams = get_hyperparameters()
-    a = hyperparams['algorithm'][0]
+    areas = hyperparams['areas']
 
-    # a = 3
+    a = 3
 
     if a == 0:
         algorithm = 'fedavg'
@@ -60,7 +60,7 @@ if __name__ == '__main__':
         pass
 
     partitioning = 'Hard'
-    areas = [3, 5, 9]
+    #areas = [3, 5, 9]
     iid_start = time.time()
     for seed in range(max_seed):
         for dataset in datasets:
